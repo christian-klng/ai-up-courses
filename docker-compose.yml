@@ -1,0 +1,93 @@
+# Production stack for Coolify ("Docker Compose" resource `ai-up-courses`, PLAN.md §3.5).
+# The images are built by GitHub Actions (.github/workflows/deploy.yml) and pulled from GHCR – the
+# app VPS never runs `next build`. Point the domain kurse.ai-up.club (without https://) at service
+# `web`, port 3000. Variables come from the Coolify UI; see docs/deployment.md.
+services:
+  web:
+    image: ghcr.io/christian-klng/ai-up-courses:web-${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      - NODE_ENV=production
+      - APP_URL=${APP_URL}
+      - APP_TIMEZONE=${APP_TIMEZONE:-Europe/Berlin}
+      - DEFAULT_LOCALE=${DEFAULT_LOCALE:-de}
+      - OPERATOR_EMAILS=${OPERATOR_EMAILS}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
+      - DATABASE_URL=postgres://courses:${POSTGRES_PASSWORD}@postgres:5432/courses
+      - REDIS_URL=redis://redis:6379
+      - UPLOAD_DIR=/data/uploads
+      - SMTP_HOST=${SMTP_HOST:-smtp.ionos.de}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM:-AI-Up Kurse <noreply@ai-up.club>}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/christian-klng/ai-up-courses:worker-${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      - NODE_ENV=production
+      - APP_URL=${APP_URL}
+      - APP_TIMEZONE=${APP_TIMEZONE:-Europe/Berlin}
+      - DEFAULT_LOCALE=${DEFAULT_LOCALE:-de}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY}
+      - DATABASE_URL=postgres://courses:${POSTGRES_PASSWORD}@postgres:5432/courses
+      - REDIS_URL=redis://redis:6379
+      - UPLOAD_DIR=/data/uploads
+      - SMTP_HOST=${SMTP_HOST:-smtp.ionos.de}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM:-AI-Up Kurse <noreply@ai-up.club>}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-4}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: courses
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: courses
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U courses -d courses"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  pgdata:
+  redisdata:

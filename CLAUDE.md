@@ -1,0 +1,14 @@
+# AI-Up Kurse – Projekthinweise
+
+- Konzept, Entscheidungen und Phasen: `PLAN.md` (Stand der Umsetzung: `README.md`). Design-Herkunft: `DESIGN.md`. Deployment: `docs/deployment.md`.
+- Sprache: UI-Texte immer in `messages/de.json` **und** `messages/en.json` (next-intl, kein URL-Präfix, Cookie `courses_locale`). Keine `{{ }}`/`<tag>` in Übersetzungen (ICU). Code, Kommentare, Ids, LLM-Instruktionen: Englisch.
+- **Communities**: Jede fachliche Zeile hat `community_id`. Die Community ist **immer ein expliziter Parameter** (meist der erste); Funktionen, die per Id laden, prüfen die Zugehörigkeit und antworten sonst `undefined` (wie „gibt es nicht“). Seiten liegen unter `/c/<slug>/…`; die Community kommt **aus dem Pfad**, nie aus einem Cookie.
+- **Rollen nur über `roleIn(communityId, userId)`** (`src/server/domain/communities.ts`) – nie `community_members` direkt für Rechte lesen. Guards: Seiten `requireMember(slug)`/`requireCommunityAdmin(slug)` (fremde Community → 404), Server Actions `assertMember(communityId)`/`assertCommunityAdmin(communityId)`, Betreiber `requireOperator()`/`assertOperator()` (`OPERATOR_EMAILS`). `src/proxy.ts` ist nur ein Cookie-Gate.
+- **Vorbereitet für AI-Up (PLAN.md §3.3)**: UUIDs als Ids (Ausnahme: `verifications.id` ist `text`, Better Auth sucht dort auch mit Nicht-UUIDs), `external_ref` an `users`/`communities`, E-Mail eindeutig, fachliche Ereignisse nur über `emit()` (`src/server/events/bus.ts` → `learner_events`), KI-Aufrufe später nur über `llm.chat(communityId, purpose, …)`.
+- **Fortschritt wird nie gesetzt, sondern abgeleitet** (PLAN.md §0, §8): Belege, Urteile, Lotsen-Entscheidungen und Zertifikate sind append-only.
+- Auth: Better Auth, nur Magic Link, `disableSignUp`. Konten entstehen über den Beitrittslink (`/join/<token>`, Mitgliedschaft erst nach Klick auf den Magic Link in `/join/<token>/accept`) oder durch den Betreiber. Cookie-Präfix `courses`.
+- Theme: Das Root-Layout setzt die Farben der Community aus dem Pfad (Header `x-community-slug` vom Proxy). Links **zwischen** Communities und aus einer Community heraus sind deshalb `<a>` (voller Seitenaufruf), nicht `<Link>`.
+- DB: Drizzle, Schema `src/server/db/schema.ts`, Spalten snake_case. Nach Schemaänderung `npm run db:generate` (Migration committen) und `npm run db:migrate`. `src/server/db/seed.ts` und alles, was es importiert, ohne pino (wird in `dist/migrate.js` voll gebündelt).
+- Server-Code, der auch im Worker läuft (`src/server/**`), importiert nichts aus `next/*`; `server-only` nur in Next-spezifischen Modulen. BullMQ-Job-Ids ohne `:`.
+- Lokal: `docker compose -f docker-compose.dev.yml up -d` (Postgres 5434, Redis 6380, Mailpit 1026/UI 8026 – andere Ports als AI-Up), `.env.example` → `.env.local`, `npm run db:migrate`, `npm run dev` (Port 3100), `npm run worker`.
+- Prüfen vor Abschluss: `npm run typecheck && npm run lint && npm test && npm run build`.

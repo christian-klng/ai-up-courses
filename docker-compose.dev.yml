@@ -1,0 +1,39 @@
+# Local development dependencies only. Run the app with `npm run dev` and the worker with `npm run worker`.
+#   docker compose -f docker-compose.dev.yml up -d
+# Ports differ from AI-Up's dev stack (5432/6379/1025/8025), so both can run side by side.
+name: ai-up-courses-dev
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: courses
+      POSTGRES_PASSWORD: courses
+      POSTGRES_DB: courses
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U courses -d courses"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata_dev:/data
+
+  # Catches all outgoing e-mail (magic links!) – UI at http://localhost:8026
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+
+volumes:
+  pgdata_dev:
+  redisdata_dev:

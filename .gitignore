@@ -1,0 +1,37 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Dependencies & builds
+node_modules/
+.next/
+dist/
+out/
+coverage/
+
+# Local data
+/data/
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Next.js / tooling
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+.pnp
+.pnp.*
+*.pem
+npm-debug.log*
+.vercel
+
+# Lokale Betriebsnotizen (Server-IPs, Zugangswege)
+CLAUDE.local.md
+
+.claude/settings.local.json
